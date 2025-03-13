@@ -1,0 +1,28 @@
+{
+  "name": "yahoo-finance-mcp",
+  "version": "1.0.0",
+  "description": "MCP tool that fetches stock data from Yahoo Finance and sends it to a trading simulator",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "jest"
+  },
+  "keywords": [
+    "yahoo-finance",
+    "stock-data",
+    "trading-simulator",
+    "mcp",
+    "web-scraping"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "puppeteer": "^21.0.0",
+    "axios": "^1.6.0",
+    "dotenv": "^16.3.1",
+    "winston": "^3.10.0"
+  },
+  "devDependencies": {
+    "jest": "^29.6.2"
+  }
+}
