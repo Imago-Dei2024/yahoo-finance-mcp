@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Simulator</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding-top: 20px;
+            background-color: #f8f9fa;
+        }
+        .stock-card {
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+        }
+        .stock-card:hover {
+            transform: translateY(-5px);
+        }
+        .price-up {
+            color: #28a745;
+        }
+        .price-down {
+            color: #dc3545;
+        }
+        .dashboard {
+            margin-top: 30px;
+        }
+        .chart-container {
+            height: 300px;
+            margin-bottom: 30px;
+        }
+        .data-table {
+            font-size: 0.9rem;
+        }
+        .search-bar {
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="text-center mb-5">
+            <h1 class="display-4">Trading Simulator</h1>
+            <p class="lead">Powered by Yahoo Finance MCP</p>
+        </header>
+
+        <div class="search-bar">
+            <div class="row justify-content-center">
+                <div class="col-md-6">
+                    <div class="input-group">
+                        <input type="text" id="stockSymbol" class="form-control" placeholder="Enter stock symbol (e.g., AAPL)">
+                        <button class="btn btn-primary" id="searchBtn">Search</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="alert alert-info" id="statusMessage" role="alert">
+            Enter a stock symbol to fetch data
+        </div>
+
+        <div class="dashboard" id="stockDashboard" style="display: none;">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card stock-card">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="card-title mb-0" id="stockSymbolHeader">AAPL</h5>
+                        </div>
+                        <div class="card-body">
+                            <h2 class="card-title" id="currentPrice">$0.00</h2>
+                            <p class="card-text" id="priceChange">0.00 (0.00%)</p>
+                            <p class="card-text">Last updated: <span id="lastUpdated">-</span></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-8">
+                    <div class="card stock-card">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="card-title mb-0">Key Statistics</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p><strong>Previous Close:</strong> <span id="previousClose">-</span></p>
+                                    <p><strong>Open:</strong> <span id="open">-</span></p>
+                                    <p><strong>Day Range:</strong> <span id="dayRange">-</span></p>
+                                    <p><strong>52 Week Range:</strong> <span id="fiftyTwoWeekRange">-</span></p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p><strong>Volume:</strong> <span id="volume">-</span></p>
+                                    <p><strong>Avg. Volume:</strong> <span id="avgVolume">-</span></p>
+                                    <p><strong>Market Cap:</strong> <span id="marketCap">-</span></p>
+                                    <p><strong>P/E Ratio:</strong> <span id="peRatio">-</span></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card stock-card">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="card-title mb-0">Price Chart</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container" id="priceChart">
+                                <!-- Chart will be rendered here -->
+                                <p class="text-center text-muted">Historical data chart will appear here</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card stock-card">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="card-title mb-0">All Data</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped data-table" id="allDataTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Metric</th>
+                                            <th>Value</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Data will be populated here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // API endpoint
+        const API_ENDPOINT = 'http://localhost:3000/api/stock-data';
+        let chart = null;
+
+        // DOM elements
+        const searchBtn = document.getElementById('searchBtn');
+        const stockSymbolInput = document.getElementById('stockSymbol');
+        const statusMessage = document.getElementById('statusMessage');
+        const stockDashboard = document.getElementById('stockDashboard');
+
+        // Event listeners
+        searchBtn.addEventListener('click', fetchStockData);
+        stockSymbolInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                fetchStockData();
+            }
+        });
+
+        // Function to fetch stock data from the API
+        async function fetchStockData() {
+            const symbol = stockSymbolInput.value.trim().toUpperCase();
+            
+            if (!symbol) {
+                showStatus('Please enter a stock symbol', 'warning');
+                return;
+            }
+            
+            showStatus(`Fetching data for ${symbol}...`, 'info');
+            
+            try {
+                const response = await fetch(`${API_ENDPOINT}/${symbol}`);
+                const result = await response.json();
+                
+                if (!result.success) {
+                    showStatus(`Error: ${result.message}`, 'danger');
+                    stockDashboard.style.display = 'none';
+                    return;
+                }
+                
+                // Display the data
+                displayStockData(result.data);
+                showStatus(`Successfully loaded data for ${symbol}`, 'success');
+                stockDashboard.style.display = 'block';
+                
+            } catch (error) {
+                console.error('Error fetching stock data:', error);
+                showStatus(`Error fetching data: ${error.message}`, 'danger');
+                stockDashboard.style.display = 'none';
+            }
+        }
+
+        // Function to display stock data
+        function displayStockData(stockData) {
+            // Update header
+            document.getElementById('stockSymbolHeader').textContent = stockData.symbol;
+            
+            // Update price information
+            const currentPrice = stockData.data.currentPrice || '$0.00';
+            document.getElementById('currentPrice').textContent = currentPrice;
+            
+            // Calculate price change if possible
+            const previousClose = stockData.data.previousClose;
+            if (currentPrice && previousClose) {
+                const currentPriceNum = parseFloat(currentPrice.replace(/[^0-9.-]+/g, ''));
+                const previousCloseNum = parseFloat(previousClose.replace(/[^0-9.-]+/g, ''));
+                
+                if (!isNaN(currentPriceNum) && !isNaN(previousCloseNum)) {
+                    const change = currentPriceNum - previousCloseNum;
+                    const changePercent = (change / previousCloseNum) * 100;
+                    
+                    const priceChangeElement = document.getElementById('priceChange');
+                    priceChangeElement.textContent = `${change.toFixed(2)} (${changePercent.toFixed(2)}%)`;
+                    
+                    if (change > 0) {
+                        priceChangeElement.className = 'card-text price-up';
+                    } else if (change < 0) {
+                        priceChangeElement.className = 'card-text price-down';
+                    } else {
+                        priceChangeElement.className = 'card-text';
+                    }
+                }
+            }
+            
+            // Update last updated time
+            document.getElementById('lastUpdated').textContent = new Date(stockData.receivedAt).toLocaleString();
+            
+            // Update key statistics
+            document.getElementById('previousClose').textContent = stockData.data.previousClose || '-';
+            document.getElementById('open').textContent = stockData.data.open || '-';
+            document.getElementById('dayRange').textContent = stockData.data.dayRange || '-';
+            document.getElementById('fiftyTwoWeekRange').textContent = stockData.data.fiftyTwoWeekRange || '-';
+            document.getElementById('volume').textContent = stockData.data.volume || '-';
+            document.getElementById('avgVolume').textContent = stockData.data.avgVolume || '-';
+            document.getElementById('marketCap').textContent = stockData.data.marketCap || '-';
+            document.getElementById('peRatio').textContent = stockData.data.peRatio || '-';
+            
+            // Update all data table
+            const tableBody = document.getElementById('allDataTable').getElementsByTagName('tbody')[0];
+            tableBody.innerHTML = '';
+            
+            for (const [key, value] of Object.entries(stockData.data)) {
+                const row = tableBody.insertRow();
+                const cell1 = row.insertCell(0);
+                const cell2 = row.insertCell(1);
+                
+                // Format the key for display (camelCase to Title Case)
+                const formattedKey = key.replace(/([A-Z])/g, ' $1')
+                    .replace(/^./, str => str.toUpperCase());
+                
+                cell1.textContent = formattedKey;
+                cell2.textContent = value;
+            }
+            
+            // Update chart if historical data is available
+            if (stockData.historicalData) {
+                renderChart(stockData.historicalData);
+            }
+        }
+
+        // Function to render price chart
+        function renderChart(historicalData) {
+            const chartContainer = document.getElementById('priceChart');
+            chartContainer.innerHTML = '<canvas id="priceChartCanvas"></canvas>';
+            
+            const ctx = document.getElementById('priceChartCanvas').getContext('2d');
+            
+            // Convert timestamps to dates
+            const labels = historicalData.timestamps.map(timestamp => 
+                new Date(timestamp * 1000).toLocaleDateString()
+            );
+            
+            // If there's an existing chart, destroy it
+            if (chart) {
+                chart.destroy();
+            }
+            
+            // Create new chart
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Stock Price',
+                        data: historicalData.closePrices,
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: false
+                        }
+                    }
+                }
+            });
+        }
+
+        // Function to show status messages
+        function showStatus(message, type) {
+            statusMessage.textContent = message;
+            statusMessage.className = `alert alert-${type}`;
+        }
+    </script>
+</body>
+</html>
